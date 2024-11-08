@@ -9,7 +9,7 @@ import mediapipe as mp
 from scipy.spatial.distance import euclidean
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "https://slug-panel.onrender.com"}})
+CORS(app, resources={r"/*": {"origins": "https://superpack-fe.vercel.app/"}})
 
 # Initialize mediapipe face mesh
 mp_drawing = mp.solutions.drawing_utils
