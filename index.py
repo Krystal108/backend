@@ -54,27 +54,33 @@ def receive_image():
         return jsonify({"error": str(e)}), 400
 
 @app.route('/Face_API/register', methods=['POST'])
-@cross_origin()  # This decorator is optional if you've set CORS globally
 def register_user():
-    if request.method == 'OPTIONS':
-        # Preflight response with the allowed headers and methods
-        response = jsonify({'status': 'Preflight check successful'})
-        response.headers.add("Access-Control-Allow-Origin", "https://superpack-fe.vercel.app")
-        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-        return response
-    
-    # Regular POST handling
     try:
+        # Get JSON data
         data = request.get_json()
-        # Process data and return a response
-        response = jsonify({"success": True, "message": "User registered successfully"})
-        response.headers.add("Access-Control-Allow-Origin", "https://superpack-fe.vercel.app")
-        return response
+        base64_string = data.get('image')
+        name = data.get('name')
+        role = data.get('role')
+        department = data.get('department')
+
+        # Validate inputs
+        if not (name and role and department and base64_string):
+            return jsonify({"success": False, "message": "All fields are required"}), 400
+
+        # Decode and process the image
+        image_data = base64.b64decode(base64_string)
+        nparr = np.frombuffer(image_data, np.uint8)
+        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        results = face_mesh.process(image_rgb)
+
+        if results.multi_face_landmarks:
+            return jsonify({"success": True, "message": f"{name} Registered Successfully"}), 200
+        else:
+            return jsonify({"success": False, "message": "No face detected, please try again"}), 400
+
     except Exception as e:
-        response = jsonify({"error": str(e)})
-        response.headers.add("Access-Control-Allow-Origin", "https://superpack-fe.vercel.app")
-        return response, 400
+        return jsonify({"error": str(e)}), 400
 
 if __name__ == '__main__':
     app.run(debug=True)
