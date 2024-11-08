@@ -33,5 +33,10 @@ def receive_image():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
+@app.route('/Face_API/register', methods=['POST'])
+@cross_origin()  # This decorator is optional if you've set CORS globally
+def register_user():
+    pass
+
 if __name__ == '__main__':
     app.run(debug=True)
