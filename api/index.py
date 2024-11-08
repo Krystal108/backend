@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
 import base64
+import cv2
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS globally
