@@ -1,11 +1,7 @@
-import json
-import base64
-import cv2
-import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
+import base64
 
-# Initialize the Flask application
 app = Flask(__name__)
 CORS(app)  # Enable CORS globally
 
@@ -30,20 +26,6 @@ def receive_image():
 
         # Respond back to the client
         return jsonify({"message": "Image received and processed"}), 200
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-
-@app.route('/Face_API/register', methods=['POST'])
-@cross_origin()  # This decorator is optional if you've set CORS globally
-def register_user():
-    try:
-        # Parse the incoming JSON data
-        data = request.get_json()
-        base64_string = data.get('image')
-        name = data.get('name')
-        role = data.get('role')
-        department = data.get('department')  # Fixed spelling
     
     except Exception as e:
         return jsonify({"error": str(e)}), 400
