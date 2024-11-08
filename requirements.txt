@@ -1,6 +1,2 @@
-    flask
-    flask-cors
-    opencv-python
-    numpy
-    mediapipe
-    scipy
+flask
+flask-cors
