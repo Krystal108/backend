@@ -13,7 +13,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app, resources={r"/Face_API/*": {"origins": "https://superpack-fe.vercel.app"}})
+CORS(app, resources={r"/Face_API/*": {"origins": "https://superpack-fe.vercel.app", "methods": ["GET", "POST", "OPTIONS"]}})
+
 # Other route definitions remain the same
 
 
@@ -53,21 +54,27 @@ def receive_image():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-@app.route('/Face_API/register', methods=['POST'])
+@app.route('/Face_API/register', methods=['POST', 'OPTIONS'])
 def register_user():
+    if request.method == 'OPTIONS':
+        # Handle the preflight request by returning the required headers
+        response = jsonify({"message": "CORS preflight check successful"})
+        response.headers.add("Access-Control-Allow-Origin", "https://superpack-fe.vercel.app")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        return response
+
     try:
-        # Get JSON data
+        # Main handling for POST request
         data = request.get_json()
         base64_string = data.get('image')
         name = data.get('name')
         role = data.get('role')
         department = data.get('department')
 
-        # Validate inputs
         if not (name and role and department and base64_string):
             return jsonify({"success": False, "message": "All fields are required"}), 400
 
-        # Decode and process the image
         image_data = base64.b64decode(base64_string)
         nparr = np.frombuffer(image_data, np.uint8)
         image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -84,3 +91,4 @@ def register_user():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
