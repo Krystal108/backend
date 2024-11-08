@@ -9,7 +9,14 @@ import mediapipe as mp
 from scipy.spatial.distance import euclidean
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS globally
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "https://superpack-fe.vercel.app", "methods": ["POST", "GET", "OPTIONS", "UPDATE", "DELETE"], "supports_credentials": True}})
+
+# Other route definitions remain the same
+
 
 # Initialize mediapipe face mesh
 mp_drawing = mp.solutions.drawing_utils
