@@ -76,11 +76,15 @@ def register_user():
             return jsonify({"success": False, "message": "All fields are required"}), 400
 
         image_data = base64.b64decode(base64_string)
+        print("Image data received")
         nparr = np.frombuffer(image_data, np.uint8)
+        print("Image data converted to numpy array")
         image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        print("Image decoded and converted to RGB")
         results = face_mesh.process(image_rgb)
-
+        print("Face mesh processed")
+        
         if results.multi_face_landmarks:
             return jsonify({"success": True, "message": "Registered Successfully"}), 200
         else:
