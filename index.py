@@ -82,7 +82,7 @@ def register_user():
         results = face_mesh.process(image_rgb)
 
         if results.multi_face_landmarks:
-            return jsonify({"success": True, "message": f"{name} Registered Successfully"}), 200
+            return jsonify({"success": True, "message": "Registered Successfully"}), 200
         else:
             return jsonify({"success": False, "message": "No face detected, please try again"}), 400
 
