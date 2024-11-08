@@ -36,7 +36,16 @@ def receive_image():
 @app.route('/Face_API/register', methods=['POST'])
 @cross_origin()  # This decorator is optional if you've set CORS globally
 def register_user():
-    pass
+    try:
+        # Parse the incoming JSON data
+        data = request.get_json()
+        base64_string = data.get('image')
+        name = data.get('name')
+        role = data.get('role')
+        department = data.get('department')  # Fixed spelling
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 if __name__ == '__main__':
     app.run(debug=True)
