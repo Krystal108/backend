@@ -2,11 +2,8 @@ import json
 import base64
 import cv2
 import datetime
-import numpy as np
-import mediapipe as mp
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
-from scipy.spatial.distance import euclidean
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS globally
