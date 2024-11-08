@@ -87,8 +87,6 @@ def register_user():
             landmarks_json = json.dumps(landmarks)
 
             # Simulate storing the user's data and landmarks
-            # In a real application, you would store this data in a database
-            print(f"User {name} with role {role} in department {department} registered with landmarks: {landmarks_json}")
 
             return jsonify({"success": True, "message": f"{name} Registered Successfully"}), 200
         else:
