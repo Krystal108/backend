@@ -13,8 +13,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "https://superpack-fe.vercel.app", "methods": ["POST", "GET", "OPTIONS", "UPDATE", "DELETE"], "supports_credentials": True}})
-
+CORS(app, resources={r"/Face_API/*": {"origins": "https://superpack-fe.vercel.app"}})
 # Other route definitions remain the same
 
 
@@ -57,50 +56,25 @@ def receive_image():
 @app.route('/Face_API/register', methods=['POST'])
 @cross_origin()  # This decorator is optional if you've set CORS globally
 def register_user():
+    if request.method == 'OPTIONS':
+        # Preflight response with the allowed headers and methods
+        response = jsonify({'status': 'Preflight check successful'})
+        response.headers.add("Access-Control-Allow-Origin", "https://superpack-fe.vercel.app")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        return response
+    
+    # Regular POST handling
     try:
-        # Parse the incoming JSON data
         data = request.get_json()
-        base64_string = data.get('image')
-        name = data.get('name')
-        role = data.get('role')
-        department = data.get('department')  # Fixed spelling
-
-        if not name or not role or not department:
-            return jsonify({"success": False, "message": "Name, role, and department are required"}), 400
-        
-        # Ensure the image is provided
-        if not base64_string:
-            return jsonify({"success": False, "message": "Image data is required"}), 400
-        
-        # Decode the base64 string to get the image bytes
-        image_data = base64.b64decode(base64_string)
-
-        # Convert bytes data to a NumPy array
-        nparr = np.frombuffer(image_data, np.uint8)
-
-        # Decode the image from the NumPy array (OpenCV expects this format)
-        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-        # Process the image and detect face mesh
-        results = face_mesh.process(image_rgb)
-
-        if results.multi_face_landmarks:
-            # Get the landmark coordinates and convert them to a list
-            face_landmarks = results.multi_face_landmarks[0]
-            landmarks = [[landmark.x, landmark.y, landmark.z] for landmark in face_landmarks.landmark]
-            
-            # Convert the landmarks list to a JSON string
-            landmarks_json = json.dumps(landmarks)
-
-            # Simulate storing the user's data and landmarks
-
-            return jsonify({"success": True, "message": f"{name} Registered Successfully"}), 200
-        else:
-            return jsonify({"success": False, "message": "No face detected, please try again"}), 400
-
+        # Process data and return a response
+        response = jsonify({"success": True, "message": "User registered successfully"})
+        response.headers.add("Access-Control-Allow-Origin", "https://superpack-fe.vercel.app")
+        return response
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        response = jsonify({"error": str(e)})
+        response.headers.add("Access-Control-Allow-Origin", "https://superpack-fe.vercel.app")
+        return response, 400
 
 if __name__ == '__main__':
     app.run(debug=True)
