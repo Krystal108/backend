@@ -13,7 +13,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app, resources={r"/Face_API/*": {"origins": "https://superpack-fe.vercel.app", "methods": ["GET", "POST", "OPTIONS"]}})
+CORS(app)
 
 # Other route definitions remain the same
 
@@ -28,6 +28,10 @@ face_mesh = mp_face_mesh.FaceMesh(
     max_num_faces=1, 
     min_detection_confidence=0.5
 )
+
+@app.route('/')
+def default_route():
+    return jsonify({"message": "Welcome to the Face API"}), 200
 
 @app.route('/Face_API/receive', methods=['POST'])
 @cross_origin()  # This decorator is optional if you've set CORS globally
@@ -56,13 +60,6 @@ def receive_image():
 
 @app.route('/Face_API/register', methods=['POST', 'OPTIONS'])
 def register_user():
-    if request.method == 'OPTIONS':
-        # Handle the preflight request by returning the required headers
-        response = jsonify({"message": "CORS preflight check successful"})
-        response.headers.add("Access-Control-Allow-Origin", "https://superpack-fe.vercel.app")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
-        return response
 
     try:
         # Main handling for POST request
