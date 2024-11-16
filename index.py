@@ -25,7 +25,7 @@ connection = mysql.connector.connect(
 )
 
 # Define the cursor
-cursor = connection.cursor()
+cursor = connection.cursor(buffered=True)
 
 
 app = Flask(__name__)
@@ -306,8 +306,12 @@ def mark_attendance():
 
             # Check if a record exists for today's date
             with connection.cursor() as cursor:
-                cursor.execute("SELECT * FROM attendance WHERE name = %s AND DATE(time_in) = %s", (name, check_in))
+                cursor.execute("SELECT * FROM attendance WHERE name = %s AND DATE(time_in) = %s LIMIT 1", (name, check_in))
                 if cursor.fetchone():
+                    
+                    cursor.execute("INSERT INTO attendance (name, role, department, time_in) VALUES (%s, %s, %s, %s)", (name, role, department, today))
+                    connection.commit()
+                    
                     return jsonify({
                         "success": True,
                         "message": f"{name} is already marked present",
@@ -458,7 +462,7 @@ def leave_request():
     )
    
     # Define the cursor
-    cursor = connection.cursor()
+    cursor = connection.cursor(buffered=True)
 
     try:
         data = request.get_json()
@@ -537,7 +541,455 @@ def employee_table():
     except Exception as e:
         print(f"Error occurred: {str(e)}")
         return jsonify({"error": str(e)}), 400
+
+
+# task search endpoint
+@app.route('/load-tasks', methods=['POST'])
+def load_task():
+    connection_tasks = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="",
+        database="task_management",
+        port="3307"
+    )
     
+    # Define the cursor
+    cursor_worker = connection_tasks.cursor(buffered=True)
+    
+    try:
+        # get the data from the request
+        data = request.get_json()
+        user_details = data.get('department')
+        
+        # Define initial query
+        query = "SELECT id, task, owner, status, start_date, due_date, completion, priority, duration FROM"
+        
+        # Define departments as list
+        departments = ['sales', 'purchasing', 'proddev', 'warehouse', 'logistics', 'accounting']
+        
+        #define table names
+        table_names = ['sales_tasks', 'purchasing_tasks', 'proddev_tasks', 'warehouse_tasks', 'logistics_tasks', 'accounting_tasks']
+        
+        # Check if user_department is in the departments list
+        if user_details in departments:
+            # Get the index of the user_department
+            index = departments.index(user_details)
+            table_name = table_names[index]
+            query = f"{query} {table_name}"
+            
+            # Execute the query
+            with connection_tasks.cursor() as cursor_worker:
+                cursor_worker.execute(query)
+                results = cursor_worker.fetchall()
+            
+            print(results)
+            
+            # Initialize list to store task records
+            task_ids = []
+            task_names = []
+            task_owners = []
+            task_status = []
+            task_start_dates = []
+            task_due_dates = []
+            task_completions = []
+            task_priorities = []
+            task_durations = []
+            
+            # Process each record from the results
+            for row in results:
+                task_ids.append(row[0])
+                task_names.append(row[1])
+                task_owners.append(row[2])
+                task_status.append(row[3])
+                task_start_dates.append(row[4].strftime('%Y-%m-%d'))
+                task_due_dates.append(row[5].strftime('%Y-%m-%d'))
+                task_completions.append(row[6])
+                task_priorities.append(row[7])
+                task_durations.append(row[8])
+                
+            # Prepare JSON response
+            if not results:
+                task_ids.append("1")
+                task_names.append("-")
+                task_owners.append("-")
+                task_status.append("-")
+                task_start_dates.append("-")
+                task_due_dates.append("-")
+                task_completions.append("0")
+                task_priorities.append("-")
+                task_durations.append("-")
+                
+            return jsonify({
+                'success': True,
+                'task_ids': task_ids,
+                'task_names': task_names,
+                'task_owners': task_owners,
+                'task_status': task_status,
+                'task_start_dates': task_start_dates,
+                'task_due_dates': task_due_dates,
+                'task_completions': task_completions,
+                'task_priorities': task_priorities,
+                'task_durations': task_durations
+            }), 200
+        
+        else:
+            return jsonify({'success': False, "error": "Invalid department"}), 400
+    except:
+        return jsonify({"error": "No data provided"}), 400
+
+# delete-task endpoint
+@app.route('/delete-task', methods=['POST'])
+def delete_task():
+    connection_tasks = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="",
+        database="task_management",
+        port="3307"
+    )
+    
+    # Define the cursor
+    cursor_delete = connection_tasks.cursor(buffered=True)
+    
+    # Get the data from the request
+    data = request.get_json()
+    task_ids = data.get('task_ids')
+    print(task_ids)
+    department = data.get('department')
+    
+    # Validate the input
+    if not task_ids:
+        return jsonify({"error": "Task IDs are required"}), 400
+    if not department:
+        return jsonify({"error": "Department is required"}), 400
+    
+    # Change the table name based on the department
+    departments = ['sales', 'purchasing', 'proddev', 'warehouse', 'logistics', 'accounting']
+    table_names = ['sales_tasks', 'purchasing_tasks', 'proddev_tasks', 'warehouse_tasks', 'logistics_tasks', 'accounting_tasks']
+    
+    try:
+        deleted_tasks = []
+        
+        # delete per id
+        if department in departments:
+            # Loop though task_id and delete each task
+            for task in task_ids:
+                index = departments.index(department)
+                table_name = table_names[index]
+                query = f"DELETE FROM {table_name} WHERE id = %s"
+                
+                with connection_tasks.cursor() as cursor_delete:
+                    cursor_delete.execute(query, (task,))
+                    connection_tasks.commit()
+                    deleted_tasks.append(task)
+                    
+           # If tasks were deleted, return success message
+            if deleted_tasks:
+                return jsonify({"success": True}), 200
+            else:
+                return jsonify({"error": "No tasks found for deletion or invalid task IDs"}), 400
+        
+        else:
+            return jsonify({"error": "Invalid department"}), 400
+    except:
+        return jsonify({"error": "An error occurred"}), 400
+
+# add-task endpoint
+@app.route('/add-task', methods=['POST'])
+def add_task():
+    connection_tasks = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="",
+        database="task_management",
+        port="3307"
+    )
+    
+    # Define the cursor
+    cursor_add = connection_tasks.cursor(buffered=True)
+    
+    # Get the data from the request
+    data = request.get_json()
+    
+    # Get the data from the request
+    new_task = data.get('task')
+    owner = data.get('owner')
+    status = data.get('status')
+    start_date = data.get('start_date')
+    due_date = data.get('due_date')
+    completion = data.get('completion')
+    priority = data.get('priority')
+    duration = data.get('duration')
+    department = data.get('department')
+    
+    print(data)
+    
+    # Change the table name based on the department
+    departments = ['sales', 'purchasing', 'proddev', 'warehouse', 'logistics', 'accounting']
+    table_names = ['sales_tasks', 'purchasing_tasks', 'proddev_tasks', 'warehouse_tasks', 'logistics_tasks', 'accounting_tasks']
+    
+    #Insert the data into the database
+    try:
+        if department in departments:
+            index = departments.index(department)
+            table_name = table_names[index]
+            query = f"INSERT INTO {table_name} (task, owner, status, start_date, due_date, completion, priority, duration) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+            
+            with connection_tasks.cursor() as cursor_add:
+                cursor_add.execute(query, (new_task, owner, status, start_date, due_date, completion, priority, duration))
+                connection_tasks.commit()
+                
+            return jsonify({"success": True, "message": "Task added successfully."}), 200
+        else:
+            return jsonify({"error": "Invalid department"}), 400
+    except:
+        return jsonify({"error": "An error occurred"}), 400
+
+# edit-task endpoint
+@app.route('/edit-task', methods=['POST'])
+def edit_task():
+    connection_tasks = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="",
+        database="task_management",
+        port="3307"
+    )
+    
+    # Define the cursor
+    cursor_add = connection_tasks.cursor(buffered=True)
+    
+    # Get the data from the request
+    data = request.get_json()
+    
+    edit_task = data.get('task')
+    edit_owner = data.get('owner')
+    edit_status = data.get('status')
+    edit_start_date = data.get('start_date')
+    edit_due_date = data.get('due_date')
+    edit_completion = data.get('completion')
+    edit_priority = data.get('priority')
+    edit_duration = data.get('duration')
+    edit_id = data.get('task_id')
+    department = data.get('department')
+    
+    print(data)
+    
+    # Change the table name based on the department
+    departments = ['sales', 'purchasing', 'proddev', 'warehouse', 'logistics', 'accounting']
+    table_names = ['sales_tasks', 'purchasing_tasks', 'proddev_tasks', 'warehouse_tasks', 'logistics_tasks', 'accounting_tasks']
+    
+    #Update the data into the database
+    try:
+        if department in departments:
+            index = departments.index(department)
+            table_name = table_names[index]
+            query = f"UPDATE {table_name} SET task = %s, owner = %s, status = %s, start_date = %s, due_date = %s, completion = %s, priority = %s, duration = %s WHERE id = %s"
+            
+            with connection_tasks.cursor() as cursor_add:
+                cursor_add.execute(query, (edit_task, edit_owner, edit_status, edit_start_date, edit_due_date, edit_completion, edit_priority, edit_duration, edit_id))
+                connection_tasks.commit()
+                
+            return jsonify({"success": True, "message": "Task updated successfully."}), 200
+        else:
+            return jsonify({"error": "Invalid department"}), 400
+    except:
+        return jsonify({"error": "An error occurred"}), 400
+
+
+# search-task endpoint
+@app.route('/search-task', methods=['POST'])
+def search_task():
+    connection_tasks = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="",
+        database="task_management",
+        port="3307"
+    )
+    
+    # Define the cursor
+    cursor_add = connection_tasks.cursor(buffered=True)
+    
+    # Get the data from the request
+    data = request.get_json()
+    
+    search_id = data.get('search_id')
+    search_department = data.get('department')
+    
+    print(data)
+    
+    # Change the table name based on the department
+    departments = ['sales', 'purchasing', 'proddev', 'warehouse', 'logistics', 'accounting']
+    table_names = ['sales_tasks', 'purchasing_tasks', 'proddev_tasks', 'warehouse_tasks', 'logistics_tasks', 'accounting_tasks']
+    
+    #Search the data from the database
+    try:
+        if search_department in departments:
+            index = departments.index(search_department)
+            table_name = table_names[index]
+            query = f"SELECT * FROM {table_name} WHERE id = %s"
+            
+            with connection_tasks.cursor() as cursor_add:
+                cursor_add.execute(query, (search_id,))
+                results = cursor_add.fetchall()
+            
+            # Initialize list to store task records
+            task_ids = []
+            task_names = []
+            task_owners = []
+            task_status = []
+            task_start_dates = []
+            task_due_dates = []
+            task_completions = []
+            task_priorities = []
+            task_durations = []
+            
+            # Process each record from the results
+            for row in results:
+                task_ids.append(row[0])
+                task_names.append(row[1])
+                task_owners.append(row[2])
+                task_status.append(row[3])
+                task_start_dates.append(row[4].strftime('%Y-%m-%d'))
+                task_due_dates.append(row[5].strftime('%Y-%m-%d'))
+                task_completions.append(row[6])
+                task_priorities.append(row[7])
+                task_durations.append(row[8])
+                
+            
+            # if results are null, replace with empty string
+            if not results:
+                task_ids = ["1"]
+                task_names = ["-"]
+                task_owners = ["-"]
+                task_status = ["-"]
+                task_start_dates = ["-"]
+                task_due_dates = ["-"]
+                task_completions = ["0"]
+                task_priorities = ["-"]
+                task_durations = ["-"]    
+            
+            # Prepare JSON response
+            return jsonify({
+                'success': True,
+                'task_ids': task_ids,
+                'task_names': task_names,
+                'task_owners': task_owners,
+                'task_status': task_status,
+                'task_start_dates': task_start_dates,
+                'task_due_dates': task_due_dates,
+                'task_completions': task_completions,
+                'task_priorities': task_priorities,
+                'task_durations': task_durations
+            }), 200
+        else:
+            return jsonify({"error": "Invalid department"}), 400
+    except:
+        return jsonify({"error": "An error occurred during search"}), 400
+
+# task-filter endpoint
+@app.route('/task-filter', methods=['POST'])
+def filter_task():
+    connection_tasks = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="",
+        database="task_management",
+        port="3307"
+    )
+    
+    # Define the cursor
+    cursor_add = connection_tasks.cursor(buffered=True)
+    
+    # Get the data from the request
+    data = request.get_json()
+    
+    assigned= data.get('assigned')
+    status = data.get('status')
+    due_date = data.get('due_date')
+    priority = data.get('priority')
+    department = data.get('department')
+    
+    # Change the table name based on the department
+    departments = ['sales', 'purchasing', 'proddev', 'warehouse', 'logistics', 'accounting']
+    table_names = ['sales_tasks', 'purchasing_tasks', 'proddev_tasks', 'warehouse_tasks', 'logistics_tasks', 'accounting_tasks']
+    
+    if department in departments:
+            index = departments.index(department)
+            table_name = table_names[index]
+    
+    # Initialize base query and parameters
+    query = f"SELECT * FROM {table_name} WHERE 1=1"
+    params = []
+    
+    # Dynamically add filters based on input data
+    if 'assigned' in data and data['assigned']:
+        query += " AND owner = %s"
+        params.append(assigned)
+    
+    if 'status' in data and data['status']:
+        query += " AND status = %s"
+        params.append(status)
+    
+    if 'due_date' in data and data['due_date']:
+        query += " AND due_date = %s"
+        params.append(due_date)
+    
+    if 'priority' in data and data['priority']:
+        query += " AND priority = %s"
+        params.append(priority)
+        
+    #Search the data from the database
+    try:
+        with connection_tasks.cursor() as cursor_add:
+            cursor_add.execute(query, tuple(params))
+            results = cursor_add.fetchall()
+        
+        print(results)
+        
+        # Initialize list to store task records
+        task_ids = []
+        task_names = []
+        task_owners = []
+        task_status = []
+        task_start_dates = []
+        task_due_dates = []
+        task_completions = []
+        task_priorities = []
+        task_durations = []
+        
+        # Process each record from the results
+        for row in results:
+            task_ids.append(row[0])
+            task_names.append(row[1])
+            task_owners.append(row[2])
+            task_status.append(row[3])
+            task_start_dates.append(row[4].strftime('%Y-%m-%d'))
+            task_due_dates.append(row[5].strftime('%Y-%m-%d'))
+            task_completions.append(row[6])
+            task_priorities.append(row[7])
+            task_durations.append(row[8])
+            
+        # Prepare JSON response
+        return jsonify({
+            'success': True,
+            'task_ids': task_ids,
+            'task_names': task_names,
+            'task_owners': task_owners,
+            'task_status': task_status,
+            'task_start_dates': task_start_dates,
+            'task_due_dates': task_due_dates,
+            'task_completions': task_completions,
+            'task_priorities': task_priorities,
+            'task_durations': task_durations
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": f"An error occurred during search {e}"}), 400
+    
+
 if __name__ == '__main__':
     app.run(debug=True)
 
